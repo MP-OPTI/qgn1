@@ -1,0 +1,8 @@
+{
+  "projects": {
+    "default": "seidr-576ca"
+  },
+  "targets": {},
+  "etags": {},
+  "dataconnectEmulatorConfig": {}
+}
