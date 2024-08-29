@@ -1,30 +1,32 @@
-// File: src/pages/Profile.jsx
 import React, { useState, useEffect } from 'react';
-import { auth, db } from '../firebaseConfig';
-import { doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { deleteUser } from 'firebase/auth';
-import ProfileForm from '../components/user/form/ProfileForm';
-import { useNavigate } from 'react-router-dom';
-import ResetPasswordButton from '../components/user/ResetPasswordButton';
+import { auth, db, storage } from '../firebaseConfig';
+import { doc, getDoc, updateDoc, arrayRemove } from 'firebase/firestore';
+import { deleteObject, ref } from 'firebase/storage';
+import BucketUploader from '../components/user/BucketUploader';
+import ProfileField from '../components/user/ProfileField';
+import DeleteAccountButton from '../components/user/DeleteAccountButton';
+import { v4 as uuidv4 } from 'uuid';
 
 const Profile = () => {
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
-  const [profilePicUrl, setProfilePicUrl] = useState('');
-  const [isEditing, setIsEditing] = useState(false);
+  const [buckets, setBuckets] = useState([]);
+  const [savedBuckets, setSavedBuckets] = useState({});
   const user = auth.currentUser;
-  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchProfile = async () => {
       if (user) {
-        const docRef = doc(db, "profiles", user.uid);
+        const docRef = doc(db, 'profiles', user.uid);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           const profileData = docSnap.data();
           setDisplayName(profileData.displayName);
           setBio(profileData.bio || '');
-          setProfilePicUrl(profileData.profilePic || '');
+          setBuckets(profileData.buckets ? profileData.buckets.map(bucket => ({
+            ...bucket,
+            files: bucket.files || [],
+          })) : []);
         }
       }
     };
@@ -32,84 +34,132 @@ const Profile = () => {
     fetchProfile();
   }, [user]);
 
-
-  const handleSave = async () => {
-    if (user) {
-      const docRef = doc(db, "profiles", user.uid);
-      await updateDoc(docRef, {
-        displayName: displayName,
-        bio: bio,
-        profilePic: profilePicUrl, 
-      });
-      setIsEditing(false);
+  useEffect(() => {
+    if (user && buckets.length) {
+      const docRef = doc(db, 'profiles', user.uid);
+      updateDoc(docRef, { buckets });
     }
+  }, [buckets, user]);
+
+  const addBucket = () => {
+    const newBucket = {
+      id: uuidv4(),
+      name: `Bucket ${buckets.length + 1}`,
+      files: [],
+    };
+    setBuckets([...buckets, newBucket]);
   };
+
+  const updateBucketFiles = (bucketId, newFiles) => {
+    setBuckets((prevBuckets) =>
+      prevBuckets.map((bucket) =>
+        bucket.id === bucketId ? { ...bucket, files: newFiles } : bucket
+      )
+    );
+  };
+
+  const deleteBucket = async (bucketId) => {
+    const bucket = buckets.find((b) => b.id === bucketId);
+    if (bucket) {
+      // Confirm the deletion action
+      const confirmDelete = window.confirm(`Are you sure you want to delete the bucket "${bucket.name}" and all its files?`);
+      if (!confirmDelete) return;
   
-
-  const handleUploadComplete = async (newUrl) => {
-    setProfilePicUrl(newUrl); // Update the profilePicUrl state in the parent component
-    await handleSave(); // Automatically save the updated profile
-  };
-
-  const handleDeleteAccount = async () => {
-    if (user) {
-      const confirmation = window.confirm("Are you sure you want to delete your account? This action cannot be undone.");
-      if (confirmation) {
-        try {
-          await deleteDoc(doc(db, "profiles", user.uid));
-          await deleteUser(user);
-          navigate('/');
-        } catch (error) {
-          console.error("Error deleting account:", error);
-          alert("Error deleting account. Please try again.");
-        }
+      // Delete each file in the bucket from Firebase Storage
+      for (let file of bucket.files) {
+        const fileRef = ref(storage, `buckets/${user.uid}/${file.name}`);
+        await deleteObject(fileRef);
       }
+  
+      // Remove the bucket from local state and Firestore
+      setBuckets((prevBuckets) => prevBuckets.filter((b) => b.id !== bucketId));
+      const docRef = doc(db, 'profiles', user.uid);
+      await updateDoc(docRef, {
+        buckets: arrayRemove(bucket) // Use arrayRemove to remove the bucket from Firestore
+      });
     }
   };
 
+  const updateBucketName = async (bucketId, newName) => {
+    setBuckets((prevBuckets) =>
+      prevBuckets.map((bucket) =>
+        bucket.id === bucketId ? { ...bucket, name: newName } : bucket
+      )
+    );
+
+    // Save changes to Firestore
+    const docRef = doc(db, 'profiles', user.uid);
+    await updateDoc(docRef, { buckets });
+    // Indicate the bucket has been saved
+    setSavedBuckets((prevSavedBuckets) => ({
+      ...prevSavedBuckets,
+      [bucketId]: true,
+    }));
+
+    // Reset the saved state after a delay
+    setTimeout(() => {
+      setSavedBuckets((prevSavedBuckets) => ({
+        ...prevSavedBuckets,
+        [bucketId]: false,
+      }));
+    }, 2000);
+  };
 
   return (
-    <div className="max-w-md mx-auto mt-8 p-4 bg-white rounded-lg shadow-md">
-      <h2 className="text-2xl font-bold mb-4">Profile</h2>
-      {isEditing ? (
-        <ProfileForm
-          displayName={displayName}
-          bio={bio}
-          profilePicUrl={profilePicUrl}
-          setDisplayName={setDisplayName}
-          setBio={setBio}
-          setProfilePicUrl={setProfilePicUrl}
-          onSave={handleSave}
-          storagePath={`profile_pictures/${user.uid}`} // Pass uid here
-          onUploadComplete={handleUploadComplete}
+    <>
+      <div className="max-w-md mx-auto mt-8 p-4 bg-white rounded-lg shadow-md">
+        <ProfileField
+          label="Name"
+          value={displayName}
+          setValue={setDisplayName}
+          fieldName="displayName"
+          user={user}
         />
-      ) : (
-        <>
-          {profilePicUrl && <img src={profilePicUrl} alt="Profile" className="w-32 h-32 object-cover rounded-full mx-auto mb-4" />}
-          <div className="mb-4">
-            <h3 className="text-xl font-bold">Display Name</h3>
-            <p className="text-gray-700">{displayName}</p>
+        <ProfileField
+          label="Description"
+          value={bio}
+          setValue={setBio}
+          fieldName="bio"
+          user={user}
+        />
+
+        {buckets.map((bucket) => (
+          <div key={bucket.id} className="mb-4">
+            <input
+              type="text"
+              value={bucket.name}
+              onChange={(e) => updateBucketName(bucket.id, e.target.value)}
+              onBlur={() => updateBucketName(bucket.id, bucket.name)}
+              className={`w-full p-2 border rounded-lg focus:outline-none focus:ring-2 ${
+                savedBuckets[bucket.id] ? 'border-green-500 focus:ring-green-500' : 'focus:ring-blue-500'
+              }`}
+            />
+            <BucketUploader
+              user={user}
+              files={bucket.files || []}
+              setFiles={(newFiles) => updateBucketFiles(bucket.id, newFiles)}
+            />
+            <button
+              onClick={() => deleteBucket(bucket.id)}
+              className="mt-2 bg-red-500 text-white p-2 rounded-lg hover:bg-red-600"
+            >
+              Delete Bucket
+            </button>
           </div>
-          <div className="mb-4">
-            <h3 className="text-xl font-bold">Bio</h3>
-            <p className="text-gray-700">{bio}</p>
-          </div>
-          <button
-            onClick={() => setIsEditing(true)}
-            className="w-full bg-blue-500 text-white p-2 rounded-lg hover:bg-blue-600"
-          >
-            Edit Profile
-          </button>
-        </>
-      )}
-      <ResetPasswordButton email={user?.email} />
-      <button
-        onClick={handleDeleteAccount}
-        className="w-full mt-4 bg-red-500 text-white p-2 rounded-lg hover:bg-red-600"
-      >
-        Delete Account
-      </button>
-    </div>
+        ))}
+
+        <button 
+          onClick={addBucket}
+          className="mt-4 bg-blue-500 text-white p-2 rounded-lg hover:bg-blue-600">
+          Add Another Bucket
+        </button>
+      </div>
+      <div className="max-w-md mx-auto p-2 rounded-lg shadow-md flex justify-center">
+        <div className="mb-4">
+          <DeleteAccountButton profilePicUrl={buckets[0]?.files[0]?.url} user={user} />
+        </div>
+      </div>
+    </>
   );
 };
 

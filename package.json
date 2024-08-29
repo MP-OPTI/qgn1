@@ -1,5 +1,5 @@
 {
-  "name": "seidr",
+  "name": "qgn1",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,12 +10,21 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fortawesome/fontawesome-svg-core": "^6.6.0",
+    "@fortawesome/free-brands-svg-icons": "^6.6.0",
+    "@fortawesome/free-solid-svg-icons": "^6.6.0",
+    "@fortawesome/pro-solid-svg-icons": "^6.6.0",
+    "@fortawesome/react-fontawesome": "^0.2.2",
     "crypto-js": "^4.2.0",
     "crypto.js": "^3.2.2",
     "firebase": "^10.13.0",
     "react": "^18.3.1",
+    "react-dnd": "^16.0.1",
+    "react-dnd-html5-backend": "^16.0.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.26.1"
+    "react-dropzone": "^14.2.3",
+    "react-router-dom": "^6.26.1",
+    "uuid": "^10.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.0",

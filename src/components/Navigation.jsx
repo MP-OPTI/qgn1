@@ -23,7 +23,6 @@ const Navigation = React.memo(({ user }) => {
       {user ? (
         <>
           <Link to="/profile" className="text-blue-500 hover:underline">Profile</Link>
-          <Link to="/users" className="text-blue-500 hover:underline">Users</Link>
           <button
             onClick={handleLogout}
             className="text-blue-500 hover:underline focus:outline-none"
@@ -36,6 +35,7 @@ const Navigation = React.memo(({ user }) => {
       )}
     </nav>
   );
+  
 });
 
 export default Navigation;

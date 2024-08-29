@@ -1,8 +1,17 @@
 {
   "projects": {
-    "default": "seidr-576ca"
+    "default": "snapq-65fed",
+    "staging": "snapq-65fed"
   },
-  "targets": {},
+  "targets": {
+    "snapq-65fed": {
+      "hosting": {
+        "qgn.app1": [
+          "qgn1"
+        ]
+      }
+    }
+  },
   "etags": {},
   "dataconnectEmulatorConfig": {}
 }

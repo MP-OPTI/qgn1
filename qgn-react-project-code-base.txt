@@ -1,0 +1,974 @@
+// File: src\App.jsx
+// File: src/App.jsx
+import React, { lazy, Suspense } from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import Layout from './components/Layout';
+import useAuth from './hooks/useAuth';
+import ProtectedRoute from './components/ProtectedRoute';
+import Home from './pages/Home';
+
+const Register = lazy(() => import('./pages/Register'));
+const Login = lazy(() => import('./pages/Login'));
+const Profile = lazy(() => import('./pages/Profile'));
+
+function App() {
+  const { user } = useAuth();
+
+  return (
+    <Router>
+      <Layout user={user}>
+        <Suspense fallback={<div>Loading...</div>}>
+          <Routes>
+            <Route path="/" element={<Home />} />  {/* Home route */}
+            <Route path="/register" element={<Register />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/profile" element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            } />
+          </Routes>
+        </Suspense>
+      </Layout>
+    </Router>
+  );
+}
+
+export default App;
+
+
+// File: src\components\Layout.jsx
+// File: src/components/Layout.jsx
+import React from 'react';
+import Navigation from './Navigation';
+
+const LayoutComponent = ({ user, children }) => (
+  <div className="min-h-screen bg-slate-950 text-text p-4 bg-cover bg-center bg-no-repeat bg-[url('">
+    <Navigation user={user} />
+    {children}
+  </div>
+);
+
+const Layout = React.memo(LayoutComponent);
+
+export default Layout;
+
+
+// File: src\components\Navigation.jsx
+// File: src/components/Navigation.jsx
+import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { signOut } from 'firebase/auth';
+import { auth } from '../firebaseConfig';
+
+const Navigation = React.memo(({ user }) => {
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    localStorage.removeItem('email');
+    localStorage.removeItem('password');
+    navigate('/');
+  };
+
+  return (
+    <nav className="flex justify-center space-x-4 mb-6">
+      <Link to="/" className="text-blue-500 hover:underline">Home</Link>
+      {!user && (
+        <Link to="/register" className="text-blue-500 hover:underline">Register</Link>
+      )}
+      {user ? (
+        <>
+          <Link to="/profile" className="text-blue-500 hover:underline">Profile</Link>
+          <button
+            onClick={handleLogout}
+            className="text-blue-500 hover:underline focus:outline-none"
+          >
+            Logout
+          </button>
+        </>
+      ) : (
+        <Link to="/login" className="text-blue-500 hover:underline">Login</Link>
+      )}
+    </nav>
+  );
+  
+});
+
+export default Navigation;
+
+// File: src\components\ProtectedRoute.jsx
+// File: src/components/ProtectedRoute.jsx
+import React from 'react';
+import { Navigate } from 'react-router-dom';
+import useAuth from '../hooks/useAuth';
+
+const ProtectedRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return <div>Loading...</div>; // Or any loading spinner/component
+  }
+
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+
+  return children;
+};
+
+export default ProtectedRoute;
+
+
+// File: src\components\user\BucketUploader.jsx
+import React, { useState, useCallback } from 'react';
+import { useDropzone } from 'react-dropzone';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '../../firebaseConfig';
+import { useDrag, useDrop, DndProvider } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
+
+const BucketUploader = ({ user, files = [], setFiles }) => { 
+
+  const onDrop = useCallback(async (acceptedFiles) => {
+    const uploadedFiles = await Promise.all(
+      acceptedFiles.map(async (file) => {
+        const fileUrl = URL.createObjectURL(file);
+        const fileRef = ref(storage, `buckets/${user.uid}/${file.name}`);
+        const metadata = {
+          contentType: file.type,
+          cacheControl: 'public, max-age=31536000',
+        };
+        await uploadBytes(fileRef, file, metadata);
+        const downloadUrl = await getDownloadURL(fileRef);
+
+        return { id: Date.now(), url: downloadUrl, name: file.name, type: file.type, preview: fileUrl };
+      })
+    );
+
+    // Update local state and pass the array directly to the parent via setFiles
+    const updatedFiles = [...files, ...uploadedFiles];
+      setFiles(updatedFiles);  // Pass the resolved array here
+    }, [user, files, setFiles]);
+
+    const moveFile = (dragIndex, hoverIndex) => {
+      const newFiles = [...files];
+      const [draggedFile] = newFiles.splice(dragIndex, 1);
+      newFiles.splice(hoverIndex, 0, draggedFile);
+      setFiles(newFiles);
+    };
+
+    const { getRootProps, getInputProps, isDragActive } = useDropzone({
+      onDrop,
+      accept: '*', 
+      multiple: true,
+    });
+
+  const FileItem = ({ file, index, moveFile }) => {
+    const [, dragRef] = useDrag({
+      type: 'file',
+      item: { index },
+    });
+
+    const [, dropRef] = useDrop({
+      accept: 'file',
+      hover(item) {
+        if (item.index !== index) {
+          moveFile(item.index, index);
+          item.index = index;
+        }
+      },
+    });
+
+    return (
+      <div ref={(node) => dragRef(dropRef(node))} className="mb-4">
+        <div className="flex items-center space-x-4">
+          <div className="flex-shrink-0">
+            {file.type.startsWith('image/') ? (
+              <img src={file.url} alt={`Preview ${index}`} className="w-16 h-16 object-cover rounded-lg" />
+            ) : (
+              <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center">
+                <span>{file.name.split('.').pop().toUpperCase()}</span>
+              </div>
+            )}
+          </div>
+          <div>
+            <p>{file.name}</p>
+            <p className="text-sm text-gray-500">{file.type}</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <DndProvider backend={HTML5Backend}>
+      <div className="mb-4">
+        <label className="block text- font-medium text-gray-700">Upload Files to Bucket</label>
+        <div
+          {...getRootProps()}
+          className={`w-full p-4 border-2 border-dashed rounded-lg cursor-pointer focus:outline-none ${
+            isDragActive ? 'border-blue-500 bg-blue-100' : 'border-gray-300'
+          }`}
+        >
+          <input {...getInputProps()} />
+          {isDragActive ? (
+            <p className="text-center text-blue-500">Drop your files!</p>
+          ) : (
+            <p className="text-center text-gray-500">
+              Drop zone - just drop any file here to upload it to your bucket.
+            </p>
+          )}
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-4">
+        {files.map((file, index) => (
+          <FileItem key={file.id} file={file} index={index} moveFile={moveFile} />
+        ))}
+      </div>
+    </DndProvider>
+  );
+};
+
+export default BucketUploader;
+
+
+// File: src\components\user\DeleteAccountButton.jsx
+import React from 'react';
+import { doc, deleteDoc } from 'firebase/firestore';
+import { deleteObject, ref } from 'firebase/storage';
+import { useNavigate } from 'react-router-dom';
+import { auth, db, storage } from '../../firebaseConfig';
+
+const DeleteAccountButton = ({ profilePicUrl, user }) => {
+  const navigate = useNavigate();
+
+  const handleDeleteAccount = async () => {
+    const confirmDelete = window.confirm("Are you sure you want to delete your account? This action cannot be undone.");
+    
+    if (confirmDelete) {
+      if (user) {
+        const userRef = doc(db, 'profiles', user.uid);
+        if (profilePicUrl) {
+          const imageRef = ref(storage, profilePicUrl);
+          await deleteObject(imageRef); // Delete profile picture from storage
+        }
+        await deleteDoc(userRef); // Delete user profile from Firestore
+        await user.delete(); // Delete user account
+        navigate('/'); // Redirect to home after deletion
+      }
+    }
+  };
+
+  return (
+    <div className="mt-4">
+      <a
+        href="#"
+        onClick={handleDeleteAccount}
+        className="text-red-500 hover:underline"
+      >
+        Delete Account
+      </a>
+    </div>
+  );
+};
+
+export default DeleteAccountButton;
+
+
+// File: src\components\user\EmailVerificationLightbox.jsx
+// File: src/components/user/EmailVerificationLightbox.jsx
+import React, { useState, useEffect } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCheck } from '@fortawesome/pro-solid-svg-icons';
+
+const EmailVerificationLightbox = ({ isOpen, onClose, checkEmailVerification, message }) => {
+  const [verified, setVerified] = useState(false);
+  const [resending, setResending] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      const intervalId = setInterval(async () => {
+        const result = await checkEmailVerification();
+        setVerified(result);
+        if (result) {
+          clearInterval(intervalId);
+          setTimeout(onClose, 2000);
+        }
+      }, 5000); // Checks every 5 seconds
+
+      return () => clearInterval(intervalId); // Cleanup interval on component unmount or close
+    }
+  }, [isOpen, checkEmailVerification, onClose]);
+
+  const handleResendVerification = async () => {
+    try {
+      setResending(true);
+      await sendEmailVerification(auth.currentUser);
+      alert('Verification email resent. Please check your inbox.');
+    } catch (error) {
+      console.error('Error resending verification email:', error);
+      alert('Error resending verification email. Please try again.');
+    } finally {
+      setResending(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 flex items-center justify-center">
+      <div className="p-12 bg-slate-900/60 backdrop-blur-lg rounded-lg shadow-lg text-center text-white inline-flex items-center">
+        {!verified ? (
+          <>
+            <div className="relative flex space-x-2 z-10">
+              <div className="w-4 h-4 bg-amber-500 rounded-full animate-pulse1"></div>
+              <div className="w-4 h-4 bg-amber-500 rounded-full animate-pulse2"></div>
+              <div className="w-4 h-4 bg-amber-500 rounded-full animate-pulse3"></div>
+            </div>
+            <p className="relative ml-4 z-10">{message}</p>
+            <button
+              onClick={handleResendVerification}
+              className={`ml-4 z-10 bg-blue-500 text-white p-2 rounded-lg hover:bg-blue-600 ${resending ? 'opacity-50' : ''}`}
+              disabled={resending}
+            >
+              {resending ? 'Resending...' : 'Resend verification email'}
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="relative text-green-500 text-2xl z-10"><FontAwesomeIcon icon={faCheck} /></div>
+            <p className="relative ml-4 z-10">Email verified!</p>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default EmailVerificationLightbox;
+
+
+// File: src\components\user\form\AuthForm.jsx
+// File: src/components/AuthForm.jsx
+import React from 'react';
+
+const AuthForm = ({ title, children, onSubmit }) => (
+  <form onSubmit={onSubmit} className="max-w-sm mx-auto bg-white p-4 rounded-lg shadow-md">
+    <h2 className="text-xl font-bold mb-4">{title}</h2>
+    {children}
+    <button type="submit" className="w-full bg-blue-500 text-white p-2 rounded-lg hover:bg-blue-600">
+      {title}
+    </button>
+  </form>
+);
+
+export default AuthForm;
+
+
+// File: src\components\user\form\FormInput.jsx
+// File: src/components/FormInput.jsx
+import React from 'react';
+
+const FormInput = ({ type, value, onChange, placeholder }) => (
+  <input
+    type={type}
+    value={value}
+    onChange={onChange}
+    placeholder={placeholder}
+    className="w-full p-2 mb-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+  />
+);
+
+export default FormInput;
+
+
+// File: src\components\user\ProfileField.jsx
+import React, { useState } from 'react';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../../firebaseConfig';
+
+const ProfileField = ({ label, value, setValue, fieldName, user }) => {
+  const [isSaved, setIsSaved] = useState(false);
+
+  const handleSave = async () => {
+    if (user) {
+      const docRef = doc(db, 'profiles', user.uid);
+      await updateDoc(docRef, {
+        [fieldName]: value,
+      });
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 2000);
+    }
+  };
+
+  return (
+    <div className="mb-4">
+      <label className="block text-sm font-medium text-gray-700">{label}</label>
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onBlur={handleSave}
+          className={`w-full p-2 border rounded-lg focus:outline-none focus:ring-2 ${
+            isSaved ? 'border-green-500 focus:ring-green-500' : 'focus:ring-blue-500'
+          }`}
+        />
+    </div>
+  );
+};
+
+export default ProfileField;
+
+
+// File: src\components\user\ResetPasswordButton.jsx
+// File: src/components/ResetPasswordButton.jsx
+import React from 'react';
+import { auth } from '../../firebaseConfig';
+import { sendPasswordResetEmail } from 'firebase/auth';
+
+const ResetPasswordButton = ({ email, buttonText = "Reset Password", className = "" }) => {
+  
+  const handleResetPassword = async () => {
+    if (email) {
+      try {
+        await sendPasswordResetEmail(auth, email);
+        alert('Password reset email sent! Please check your inbox.');
+      } catch (error) {
+        console.error('Error sending password reset email:', error);
+        alert('Error sending password reset email. Please try again.');
+      }
+    } else {
+      alert('Please provide a valid email address.');
+    }
+  };
+
+  return (
+    <button
+      onClick={handleResetPassword}
+      className={`bg-yellow-500 text-white p-2 rounded-lg hover:bg-yellow-600 ${className}`}
+    >
+      {buttonText}
+    </button>
+  );
+};
+
+export default ResetPasswordButton;
+
+
+// File: src\components\user\SignIn.jsx
+// File: src/components/user/SignIn.jsx
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { auth } from '../../firebaseConfig';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import CryptoJS from 'crypto-js';
+import AuthForm from '../../components/user/form/AuthForm';
+import FormInput from '../../components/user/form/FormInput';
+import EmailVerificationLightbox from '../../components/user/EmailVerificationLightbox';
+
+const SECRET_KEY = import.meta.env.VITE_SECRET_KEY;
+
+const SignIn = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const navigate = useNavigate(); 
+
+  useEffect(() => {
+    const storedEmail = localStorage.getItem('email');
+    const storedPassword = localStorage.getItem('password');
+    
+    if (storedEmail && storedPassword) {
+      setEmail(CryptoJS.AES.decrypt(storedEmail, SECRET_KEY).toString(CryptoJS.enc.Utf8));
+      setPassword(CryptoJS.AES.decrypt(storedPassword, SECRET_KEY).toString(CryptoJS.enc.Utf8));
+      setRememberMe(true);
+    }
+  }, []);
+
+  const checkEmailVerification = async () => {
+    await auth.currentUser.reload();
+    return auth.currentUser.emailVerified;
+  };
+
+  const handleSignIn = async (e) => {
+    e.preventDefault();
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      await user.reload(); // Reload user to get the latest data
+      if (!user.emailVerified) {
+        setIsLightboxOpen(true); // Open the lightbox if the email is not verified
+        return;
+      }
+
+      if (rememberMe) {
+        localStorage.setItem('email', CryptoJS.AES.encrypt(email, SECRET_KEY).toString());
+        localStorage.setItem('password', CryptoJS.AES.encrypt(password, SECRET_KEY).toString());
+      } else {
+        localStorage.removeItem('email');
+        localStorage.removeItem('password');
+      }
+
+      navigate('/');
+    } catch (error) {
+      console.error('Error signing in:', error);
+      alert('Error signing in');
+    }
+  };
+
+  return (
+    <>
+      <AuthForm title="Login" onSubmit={handleSignIn}>
+        <FormInput
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Email"
+        />
+        <FormInput
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Password"
+        />
+        <div className="flex items-center mb-4">
+          <input
+            type="checkbox"
+            checked={rememberMe}
+            onChange={(e) => setRememberMe(e.target.checked)}
+            className="mr-2"
+            message="You need to verify your email to sign in, please check your inbox..."
+          />
+          <label className="text-gray-700">Remember Me</label>
+        </div>
+      </AuthForm>
+
+      <EmailVerificationLightbox
+        isOpen={isLightboxOpen}
+        onClose={() => setIsLightboxOpen(false)}
+        checkEmailVerification={checkEmailVerification}
+      />
+    </>
+  );
+};
+
+export default SignIn;
+
+
+// File: src\components\user\SignUp.jsx
+// File: src/components/user/SignUp.jsx
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { auth, db } from '../../firebaseConfig';
+import { createUserWithEmailAndPassword, sendEmailVerification, signOut, signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
+import AuthForm from '../../components/user/form/AuthForm';
+import FormInput from '../../components/user/form/FormInput';
+import EmailVerificationLightbox from '../../components/user/EmailVerificationLightbox';
+
+
+const SignUp = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [temporaryUser, setTemporaryUser] = useState(null);
+  const navigate = useNavigate();
+
+  const handleSignUp = async (e) => {
+    e.preventDefault();
+
+    // Check if displayName is empty
+    if (!displayName.trim()) {
+      alert('Display Name is required');
+      return;
+    }
+
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      await setDoc(doc(db, 'profiles', user.uid), {
+        uid: user.uid,
+        email: user.email,
+        displayName: displayName,
+      });
+
+      await sendEmailVerification(user);
+      setTemporaryUser({ email, password }); // Store email and password temporarily for checking status
+      setIsLightboxOpen(true);
+
+      await signOut(auth);
+
+    } catch (error) {
+      console.error('Error signing up:', error);
+      alert('Error signing up');
+    }
+  };
+
+  return (
+    <>
+      <AuthForm title="Sign Up" onSubmit={handleSignUp}>
+        <input
+          type="text"
+          placeholder="Display Name"
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          className="w-full p-2 mb-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <FormInput
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Email"
+        />
+        <FormInput
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Password"
+        />
+      </AuthForm>
+
+      <EmailVerificationLightbox
+        isOpen={isLightboxOpen}
+        onClose={() => {
+          setIsLightboxOpen(false);
+          navigate('/login'); // Redirect to the login page after closing the lightbox
+        }}
+        checkEmailVerification={async () => {
+          if (temporaryUser) {
+            try {
+              // Sign in silently to check verification
+              const userCredential = await signInWithEmailAndPassword(
+                auth,
+                temporaryUser.email,
+                temporaryUser.password
+              );
+              const user = userCredential.user;
+              await user.reload(); // Reload user data
+              return user.emailVerified; // Return verification status
+            } catch (error) {
+              console.error('Error checking email verification:', error);
+              return false;
+            }
+          }
+          return false;
+        }}
+        message="Registration successful! Please check your inbox to verify your email before logging in."
+      />
+    </>
+  );
+};
+
+export default SignUp;
+
+
+// File: src\firebaseConfig.js
+// src/firebaseConfig.js
+import { initializeApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
+
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+};
+
+const app = initializeApp(firebaseConfig);
+
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+export const storage = getStorage(app);
+
+
+// File: src\hooks\useAuth.js
+// File: src/hooks/useAuth.js
+import { useState, useEffect } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../firebaseConfig';
+
+const useAuth = () => {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true); 
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user || null); // Ensure user is null when not authenticated
+      setLoading(false); 
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  return { user, loading };
+};
+
+export default useAuth;
+
+
+// File: src\main.jsx
+// src/main.jsx
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import './index.css'; 
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+);
+
+
+// File: src\pages\Home.jsx
+import React, { useState, useEffect } from 'react';
+import useAuth from '../hooks/useAuth';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebaseConfig';
+
+const Home = () => {
+    const { user } = useAuth();
+    const [displayName, setDisplayName] = useState(null);
+
+    useEffect(() => {
+        const fetchUserProfile = async () => {
+            if (user) {
+                try {
+                    const userDoc = await getDoc(doc(db, 'profiles', user.uid)); // Fetch the user document from Firestore
+                    if (userDoc.exists()) {
+                        setDisplayName(userDoc.data().displayName); // Set the display name
+                    }
+                } catch (error) {
+                    console.error("Error fetching user profile:", error);
+                }
+            }
+        };
+
+        fetchUserProfile(); // Call the function to fetch the profile
+    }, [user]); // Only refetch if user changes
+
+    return (
+        <div className="max-w-md mx-auto mt-8">
+            <h1 className="text-white text-2xl font-bold mb-6">Home</h1>
+            {user ? (
+                <p className="text-white">Welcome, {displayName ? displayName : user.email}</p>
+                // Display the displayName if it exists, otherwise fall back to email
+            ) : (
+                <p>Welcome, guest</p>
+            )}
+        </div>
+    );
+};
+
+
+export default Home;
+
+// File: src\pages\Login.jsx
+// File: src/pages/Login.jsx
+import React, { useState } from 'react';
+import SignIn from '../components/user/SignIn';
+import ResetPasswordButton from '../components/user/ResetPasswordButton';
+
+const Login = () => {
+  const [email, setEmail] = useState('');
+  const [showResetPassword, setShowResetPassword] = useState(false);
+
+  return (
+    <div className="flex flex-col justify-center items-center">
+      <h1 className="text-3xl font-bold mb-6">Login</h1>
+      <SignIn />
+
+      {!showResetPassword ? (
+        <p className="mt-4">
+          <button
+            onClick={() => setShowResetPassword(true)}
+            className="text-blue-500 hover:underline"
+          >
+            Forgot your password?
+          </button>
+        </p>
+      ) : (
+        <div className="mt-4">
+          <input
+            type="email"
+            placeholder="Enter your email to reset password"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="p-2 border rounded-lg w-full"
+          />
+          <ResetPasswordButton email={email} buttonText="Send Password Reset Email" className="mt-2" />
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Login;
+
+
+// File: src\pages\Profile.jsx
+import React, { useState, useEffect } from 'react';
+import { auth, db } from '../firebaseConfig';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import BucketUploader from '../components/user/BucketUploader';
+import ProfileField from '../components/user/ProfileField';
+import DeleteAccountButton from '../components/user/DeleteAccountButton';
+import { v4 as uuidv4 } from 'uuid';
+
+const Profile = () => {
+  const [displayName, setDisplayName] = useState('');
+  const [bio, setBio] = useState('');
+  const [buckets, setBuckets] = useState([]);
+  const [savedBuckets, setSavedBuckets] = useState({});
+  const user = auth.currentUser;
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (user) {
+        const docRef = doc(db, 'profiles', user.uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const profileData = docSnap.data();
+          setDisplayName(profileData.displayName);
+          setBio(profileData.bio || '');
+          setBuckets(profileData.buckets ? profileData.buckets.map(bucket => ({
+            ...bucket,
+            files: bucket.files || [],
+          })) : []);
+        }
+      }
+    };
+
+    fetchProfile();
+  }, [user]);
+
+  useEffect(() => {
+    if (user && buckets.length) {
+      const docRef = doc(db, 'profiles', user.uid);
+      updateDoc(docRef, { buckets });
+    }
+  }, [buckets, user]);
+
+  const addBucket = () => {
+    const newBucket = {
+      id: uuidv4(),
+      name: `Bucket ${buckets.length + 1}`,
+      files: [],
+    };
+    setBuckets([...buckets, newBucket]);
+  };
+
+  const updateBucketFiles = (bucketId, newFiles) => {
+    setBuckets((prevBuckets) =>
+      prevBuckets.map((bucket) =>
+        bucket.id === bucketId ? { ...bucket, files: newFiles } : bucket
+      )
+    );
+  };
+
+  const updateBucketName = async (bucketId, newName) => {
+    setBuckets((prevBuckets) =>
+      prevBuckets.map((bucket) =>
+        bucket.id === bucketId ? { ...bucket, name: newName } : bucket
+      )
+    );
+
+    // Save changes to Firestore
+    const docRef = doc(db, 'profiles', user.uid);
+    await updateDoc(docRef, { buckets });
+    // Indicate the bucket has been saved
+    setSavedBuckets((prevSavedBuckets) => ({
+      ...prevSavedBuckets,
+      [bucketId]: true,
+    }));
+
+    // Reset the saved state after a delay
+    setTimeout(() => {
+      setSavedBuckets((prevSavedBuckets) => ({
+        ...prevSavedBuckets,
+        [bucketId]: false,
+      }));
+    }, 2000);
+  };
+
+  return (
+    <>
+      <div className="max-w-md mx-auto mt-8 p-4 bg-white rounded-lg shadow-md">
+        <ProfileField
+          label="Name"
+          value={displayName}
+          setValue={setDisplayName}
+          fieldName="displayName"
+          user={user}
+        />
+        <ProfileField
+          label="Description"
+          value={bio}
+          setValue={setBio}
+          fieldName="bio"
+          user={user}
+        />
+
+        {buckets.map((bucket) => (
+          <div key={bucket.id} className="mb-4">
+            <input
+              type="text"
+              value={bucket.name}
+              onChange={(e) => updateBucketName(bucket.id, e.target.value)}
+              onBlur={() => updateBucketName(bucket.id, bucket.name)}
+              className={`w-full p-2 border rounded-lg focus:outline-none focus:ring-2 ${
+                savedBuckets[bucket.id] ? 'border-green-500 focus:ring-green-500' : 'focus:ring-blue-500'
+              }`}
+            />
+            <BucketUploader
+              user={user}
+              files={bucket.files || []}
+              setFiles={(newFiles) => updateBucketFiles(bucket.id, newFiles)}
+            />
+          </div>
+        ))}
+
+        <button 
+          onClick={addBucket}
+          className="mt-4 bg-blue-500 text-white p-2 rounded-lg hover:bg-blue-600">
+          Add Another Bucket
+        </button>
+      </div>
+      <div className="max-w-md mx-auto p-2 rounded-lg shadow-md flex justify-center">
+        <div className="mb-4">
+          <DeleteAccountButton profilePicUrl={buckets[0]?.files[0]?.url} user={user} />
+        </div>
+      </div>
+    </>
+  );
+};
+
+export default Profile;
+
+
+// File: src\pages\Register.jsx
+// src/pages/Register.jsx
+import React from 'react';
+import SignUp from '../components/user/SignUp';
+
+const Register = () => {
+  return (
+    <div className="flex flex-col justify-center items-center">
+      <h1 className="text-3xl font-bold mb-6">Register</h1>
+      <SignUp />
+    </div>
+  );
+};
+
+export default Register;
+
+

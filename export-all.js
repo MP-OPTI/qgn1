@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const sourceDir = path.join(__dirname, 'src');
-const outputFile = path.join(__dirname, 'seidr-react-project-code-base.txt');
+const outputFile = path.join(__dirname, 'qgn-react-project-code-base.txt');
 
 function readDirRecursive(dir, fileList = []) {
   const files = fs.readdirSync(dir);
