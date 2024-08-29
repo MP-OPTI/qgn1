@@ -4,7 +4,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../../firebaseConfig';
 import { useDrag, useDrop, DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 const BucketUploader = ({ user, files = [], setFiles }) => { 
 
   const onDrop = useCallback(async (acceptedFiles) => {
@@ -58,15 +58,17 @@ const BucketUploader = ({ user, files = [], setFiles }) => {
     });
 
     return (
-      <div ref={(node) => dragRef(dropRef(node))} className="mb-4">
+      <div ref={(node) => dragRef(dropRef(node))} className="pt-4 pb-4 mb-1 bg-slate-100 rounded-lg cursor-move">
         <div className="flex items-center space-x-4">
           <div className="flex-shrink-0">
             {file.type.startsWith('image/') ? (
               <img src={file.url} alt={`Preview ${index}`} className="w-16 h-16 object-cover rounded-lg" />
             ) : (
-              <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center">
-                <span>{file.name.split('.').pop().toUpperCase()}</span>
-              </div>
+              <span className="truncate block w-full text-center">
+              {file.name.length > 10 
+                ? file.name.slice(0, 7) + '...' + file.name.split('.').pop().toUpperCase()
+                  : file.name.split('.').pop().toUpperCase()}
+              </span>
             )}
           </div>
           <div>
@@ -80,20 +82,24 @@ const BucketUploader = ({ user, files = [], setFiles }) => {
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="mb-4">
+      <div className="mb-4 p-2">
         <label className="block text- font-medium text-gray-700">Upload Files to Bucket</label>
         <div
           {...getRootProps()}
-          className={`w-full p-4 border-2 border-dashed rounded-lg cursor-pointer focus:outline-none ${
+          className={`w-full pt-8 pb-8 pl-4 pr-4 border-2 border-dashed rounded-lg cursor-pointer focus:outline-none ${
             isDragActive ? 'border-blue-500 bg-blue-100' : 'border-gray-300'
           }`}
         >
           <input {...getInputProps()} />
           {isDragActive ? (
-            <p className="text-center text-blue-500">Drop your files!</p>
+            <p className="text-center text-blue-500">
+              <FontAwesomeIcon icon="upload" className="mr-2" />
+              Drop your files!
+            </p>
           ) : (
             <p className="text-center text-gray-500">
-              Drop zone - just drop any file here to upload it to your bucket.
+              <FontAwesomeIcon icon="upload" className="mr-2" />
+              Drop zone - Add files to your bucket.
             </p>
           )}
         </div>

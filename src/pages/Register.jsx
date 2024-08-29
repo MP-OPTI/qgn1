@@ -1,6 +1,7 @@
 // src/pages/Register.jsx
 import React from 'react';
 import SignUp from '../components/user/SignUp';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 const Register = () => {
   return (

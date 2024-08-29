@@ -3,6 +3,7 @@ import { doc, deleteDoc } from 'firebase/firestore';
 import { deleteObject, ref } from 'firebase/storage';
 import { useNavigate } from 'react-router-dom';
 import { auth, db, storage } from '../../firebaseConfig';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 const DeleteAccountButton = ({ profilePicUrl, user }) => {
   const navigate = useNavigate();

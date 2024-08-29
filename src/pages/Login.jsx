@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import SignIn from '../components/user/SignIn';
 import ResetPasswordButton from '../components/user/ResetPasswordButton';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 const Login = () => {
   const [email, setEmail] = useState('');

@@ -1,7 +1,6 @@
 // File: src/components/user/EmailVerificationLightbox.jsx
 import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCheck } from '@fortawesome/pro-solid-svg-icons';
 
 const EmailVerificationLightbox = ({ isOpen, onClose, checkEmailVerification, message }) => {
   const [verified, setVerified] = useState(false);
@@ -43,9 +42,7 @@ const EmailVerificationLightbox = ({ isOpen, onClose, checkEmailVerification, me
         {!verified ? (
           <>
             <div className="relative flex space-x-2 z-10">
-              <div className="w-4 h-4 bg-amber-500 rounded-full animate-pulse1"></div>
-              <div className="w-4 h-4 bg-amber-500 rounded-full animate-pulse2"></div>
-              <div className="w-4 h-4 bg-amber-500 rounded-full animate-pulse3"></div>
+              <FontAwesomeIcon icon="spinner" spin className="text-amber-500" />
             </div>
             <p className="relative ml-4 z-10">{message}</p>
             <button
@@ -53,12 +50,13 @@ const EmailVerificationLightbox = ({ isOpen, onClose, checkEmailVerification, me
               className={`ml-4 z-10 bg-blue-500 text-white p-2 rounded-lg hover:bg-blue-600 ${resending ? 'opacity-50' : ''}`}
               disabled={resending}
             >
+              <FontAwesomeIcon icon="envelope" className="mr-2" />
               {resending ? 'Resending...' : 'Resend verification email'}
             </button>
           </>
         ) : (
           <>
-            <div className="relative text-green-500 text-2xl z-10"><FontAwesomeIcon icon={faCheck} /></div>
+            <div className="relative text-green-500 text-2xl z-10"><FontAwesomeIcon icon="check" /></div>
             <p className="relative ml-4 z-10">Email verified!</p>
           </>
         )}

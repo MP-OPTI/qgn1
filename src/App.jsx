@@ -9,6 +9,8 @@ import Home from './pages/Home';
 const Register = lazy(() => import('./pages/Register'));
 const Login = lazy(() => import('./pages/Login'));
 const Profile = lazy(() => import('./pages/Profile'));
+const Buckets = lazy(() => import('./pages/Buckets'));
+const BucketView = lazy(() => import('./pages/BucketView'));
 
 function App() {
   const { user } = useAuth();
@@ -26,6 +28,12 @@ function App() {
                 <Profile />
               </ProtectedRoute>
             } />
+            <Route path="/buckets" element={
+              <ProtectedRoute>
+                <Buckets />
+              </ProtectedRoute>
+            } />
+            <Route path="/bucket/:userId/:bucketId" element={<BucketView />} />
           </Routes>
         </Suspense>
       </Layout>
