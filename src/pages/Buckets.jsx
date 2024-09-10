@@ -1,55 +1,69 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { auth, db, storage } from '../firebaseConfig';
-import { doc, getDoc, updateDoc, arrayRemove } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, arrayRemove, arrayUnion } from 'firebase/firestore';
 import { deleteObject, ref } from 'firebase/storage';
-import BucketUploader from '../components/user/BucketUploader';
-import ProfileField from '../components/user/ProfileField';
-import DeleteAccountButton from '../components/user/DeleteAccountButton';
-import BucketQRCode from '../components/user/BucketQRCode';
 import { v4 as uuidv4 } from 'uuid';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import BucketList from '../components/bucket/BucketList';
+import AddBucketButton from '../components/bucket/AddBucketButton';
 
 const Profile = () => {
-  const [displayName, setDisplayName] = useState('');
-  const [bio, setBio] = useState('');
   const [buckets, setBuckets] = useState([]);
   const [savedBuckets, setSavedBuckets] = useState({});
   const user = auth.currentUser;
+  const [qrCodeLightbox, setQrCodeLightbox] = useState({});
+  const bottomRef = useRef(null);
 
   useEffect(() => {
-    const fetchProfile = async () => {
+    const fetchBuckets = async () => {
       if (user) {
         const docRef = doc(db, 'profiles', user.uid);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          const profileData = docSnap.data();
-          setDisplayName(profileData.displayName);
-          setBio(profileData.bio || '');
-          setBuckets(profileData.buckets ? profileData.buckets.map(bucket => ({
-            ...bucket,
-            files: bucket.files || [],
-          })) : []);
+          const userData = docSnap.data();
+          setBuckets(userData.buckets || []);
         }
       }
     };
 
-    fetchProfile();
+    fetchBuckets();
   }, [user]);
 
   useEffect(() => {
     if (user && buckets.length) {
       const docRef = doc(db, 'profiles', user.uid);
-      updateDoc(docRef, { buckets });
+  
+      // Filter out non-serializable properties and handle cases where files is not an array
+      const serializableBuckets = buckets.map(bucket => ({
+        ...bucket,
+        files: Array.isArray(bucket.files) ? bucket.files.map(file => ({
+          ...file
+          // Ensure no non-serializable fields are included in files, if needed
+        })) : [] // Default to empty array if files is not an array
+      }));
+  
+      updateDoc(docRef, { buckets: serializableBuckets });
     }
   }, [buckets, user]);
 
-  const addBucket = () => {
+  const addBucket = async () => {
     const newBucket = {
       id: uuidv4(),
       name: `Bucket ${buckets.length + 1}`,
       files: [],
     };
     setBuckets([...buckets, newBucket]);
+  
+    // Update Firestore
+    const docRef = doc(db, 'profiles', user.uid);
+    await updateDoc(docRef, {
+      buckets: arrayUnion(newBucket)
+    });
+
+    // Scroll to the new bucket after a short delay to ensure it's rendered
+    setTimeout(() => {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
   };
 
   const updateBucketFiles = (bucketId, newFiles) => {
@@ -107,68 +121,27 @@ const Profile = () => {
     }, 2000);
   };
 
+  const toggleQRCodeLightbox = (bucketId) => {
+    setQrCodeLightbox(prev => ({
+      ...prev,
+      [bucketId]: !prev[bucketId]
+    }));
+  };
+
   return (
     <>
-      <div className="max-w-md mx-auto mt-8 p-4 bg-white rounded-lg shadow-md">
-        {/*{user && (
-          <div className="mb-4 p-2 bg-gray-100 rounded-lg">
-             <p className="text-sm text-gray-600">User ID: {user.uid}</p> 
-          </div>
-        )}*/}
-        <ProfileField
-          label="Name"
-          value={displayName}
-          setValue={setDisplayName}
-          fieldName="displayName"
-          user={user}
-        />
-        <ProfileField
-          label="Description"
-          value={bio}
-          setValue={setBio}
-          fieldName="bio"
-          user={user}
-        />
-
-        {buckets.map((bucket) => (
-          <div key={bucket.id} className="mb-4 p-4 rounded-lg shadow-md">
-            <div className="flex justify-between items-center mb-2">
-              <input
-                type="text"
-                value={bucket.name}
-                onChange={(e) => updateBucketName(bucket.id, e.target.value)}
-                onBlur={() => updateBucketName(bucket.id, bucket.name)}
-                className={`w-full p-2 rounded-lg font-bold focus:outline-none focus:ring-2 ${
-                  savedBuckets[bucket.id] ? 'border-green-500 focus:ring-green-500' : 'focus:ring-blue-500'
-                }`}
-              />
-              <button
-                onClick={() => deleteBucket(bucket.id)}
-                className="ml-4 bg-red-300 text-white p-2 rounded-lg hover:bg-red-600 w-8 h-8 flex items-center justify-center"
-              >
-                <FontAwesomeIcon icon="trash" />
-              </button>
-            </div>
-            <BucketUploader
-              user={user}
-              files={bucket.files || []}
-              setFiles={(newFiles) => updateBucketFiles(bucket.id, newFiles)}
-            />
-            <BucketQRCode user={user} bucketId={bucket.id} />
-          </div>
-        ))}
-
-        <button 
-          onClick={addBucket}
-          className="mt-4 bg-blue-500 text-white p-2 rounded-lg hover:bg-blue-600">
-          Add Another Bucket
-        </button>
-      </div>
-      <div className="max-w-md mx-auto p-2 rounded-lg shadow-md flex justify-center">
-        <div className="mb-4">
-          <DeleteAccountButton profilePicUrl={buckets[0]?.files[0]?.url} user={user} />
-        </div>
-      </div>
+      <AddBucketButton addBucket={addBucket} />
+      <BucketList
+        buckets={buckets}
+        updateBucketName={updateBucketName}
+        deleteBucket={deleteBucket}
+        toggleQRCodeLightbox={toggleQRCodeLightbox}
+        qrCodeLightbox={qrCodeLightbox}
+        user={user}
+        setBuckets={setBuckets}
+        savedBuckets={savedBuckets}
+      />
+      <div ref={bottomRef} />
     </>
   );
 };

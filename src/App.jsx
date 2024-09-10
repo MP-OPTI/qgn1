@@ -1,10 +1,11 @@
 // File: src/App.jsx
 import React, { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import Layout from './components/Layout';
+import Layout from './components/common/Layout';
 import useAuth from './hooks/useAuth';
-import ProtectedRoute from './components/ProtectedRoute';
+import ProtectedRoute from './components/common/ProtectedRoute';
 import Home from './pages/Home';
+import headerImage from './assets/6675303.svg';  // Import the image
 
 const Register = lazy(() => import('./pages/Register'));
 const Login = lazy(() => import('./pages/Login'));
@@ -17,7 +18,7 @@ function App() {
 
   return (
     <Router>
-      <Layout user={user}>
+      <Layout user={user} pageTitle="Store and share, it's simple" headerImage={headerImage}>
         <Suspense fallback={<div>Loading...</div>}>
           <Routes>
             <Route path="/" element={<Home />} />  {/* Home route */}

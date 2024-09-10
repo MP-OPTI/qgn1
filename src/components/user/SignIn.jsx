@@ -81,7 +81,6 @@ const SignIn = () => {
             checked={rememberMe}
             onChange={(e) => setRememberMe(e.target.checked)}
             className="mr-2"
-            message="You need to verify your email to sign in, please check your inbox..."
           />
           <label className="text-gray-700">Remember Me</label>
         </div>
@@ -91,6 +90,7 @@ const SignIn = () => {
         isOpen={isLightboxOpen}
         onClose={() => setIsLightboxOpen(false)}
         checkEmailVerification={checkEmailVerification}
+        message="You need to verify your email to sign in, please check your inbox..."
       />
     </>
   );

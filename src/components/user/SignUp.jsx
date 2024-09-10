@@ -1,4 +1,3 @@
-// File: src/components/user/SignUp.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../../firebaseConfig';
@@ -7,7 +6,6 @@ import { doc, setDoc } from 'firebase/firestore';
 import AuthForm from '../../components/user/form/AuthForm';
 import FormInput from '../../components/user/form/FormInput';
 import EmailVerificationLightbox from '../../components/user/EmailVerificationLightbox';
-
 
 const SignUp = () => {
   const [email, setEmail] = useState('');
@@ -53,7 +51,7 @@ const SignUp = () => {
       <AuthForm title="Sign Up" onSubmit={handleSignUp}>
         <input
           type="text"
-          placeholder="Display Name"
+          placeholder="Name"
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
           className="w-full p-2 mb-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"

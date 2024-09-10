@@ -16,8 +16,21 @@ import {
   faQrcode,
   faFill,
   faShapes,
-  faCubes
+  faCubes,
+  faLink,
+  faExternalLinkAlt,
+  faTimes,
+  faDownload,
+  faCopy,
+  faFileImage, // Updated icon name
 } from '@fortawesome/free-solid-svg-icons';
+
+// Importing Pro icons
+import { 
+  faHandWave,
+  faFileSvg,
+  faFilePng
+} from '@fortawesome/pro-solid-svg-icons';
 
 library.add(
   faTrash, 
@@ -36,5 +49,15 @@ library.add(
   faQrcode,
   faFill,
   faShapes,
-  faCubes
+  faCubes,
+  faLink,
+  faExternalLinkAlt,
+  faTimes,
+  faDownload,
+  faCopy,
+  faFileImage, 
+  // Adding Pro icons
+  faHandWave,
+  faFileSvg,
+  faFilePng
 );

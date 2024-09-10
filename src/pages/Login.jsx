@@ -2,14 +2,13 @@
 import React, { useState } from 'react';
 import SignIn from '../components/user/SignIn';
 import ResetPasswordButton from '../components/user/ResetPasswordButton';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [showResetPassword, setShowResetPassword] = useState(false);
 
   return (
-    <div className="flex flex-col justify-center items-center">
+    <div className="mt-12 flex flex-col justify-center items-center">
       <h1 className="text-3xl font-bold mb-6">Login</h1>
       <SignIn />
 
