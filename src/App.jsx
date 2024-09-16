@@ -6,6 +6,7 @@ import useAuth from './hooks/useAuth';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import Home from './pages/Home';
 import headerImage from './assets/6675303.svg';  // Import the image
+import MondayBoard from './pages/MondayBoard';
 
 const Register = lazy(() => import('./pages/Register'));
 const Login = lazy(() => import('./pages/Login'));
@@ -18,7 +19,7 @@ function App() {
 
   return (
     <Router>
-      <Layout user={user} pageTitle="Store and share, it's simple" headerImage={headerImage}>
+      <Layout user={user} pageTitle="QR QR QR" headerImage={headerImage}>
         <Suspense fallback={<div>Loading...</div>}>
           <Routes>
             <Route path="/" element={<Home />} />  {/* Home route */}
@@ -35,6 +36,11 @@ function App() {
               </ProtectedRoute>
             } />
             <Route path="/bucket/:userId/:bucketId" element={<BucketView />} />
+            <Route path="/monday-board" element={
+              <ProtectedRoute>
+                <MondayBoard />
+              </ProtectedRoute>
+            } />
           </Routes>
         </Suspense>
       </Layout>

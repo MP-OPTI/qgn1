@@ -38,6 +38,9 @@ const Navigation = React.memo(({ user, isFixed }) => {
               <Link to="/profile" className={`mr-3 hover:underline ${isActive('/profile') ? 'text-indigo-500' : 'text-white'}`}>
                 <FontAwesomeIcon icon="user" className="mr-3" />
               </Link>
+              <Link to="/monday-board" className={`mr-3 hover:underline ${isActive('/monday-board') ? 'text-indigo-500' : 'text-white'}`}>
+                <FontAwesomeIcon icon="tasks" className="mr-3" />
+              </Link>
               <button
                 onClick={handleLogout}
                 className="text-white text-2xl hover:underline focus:outline-none"

@@ -22,14 +22,15 @@ import {
   faTimes,
   faDownload,
   faCopy,
-  faFileImage, // Updated icon name
+  faFileImage
 } from '@fortawesome/free-solid-svg-icons';
 
 // Importing Pro icons
 import { 
   faHandWave,
   faFileSvg,
-  faFilePng
+  faFilePng,
+  faTasks
 } from '@fortawesome/pro-solid-svg-icons';
 
 library.add(
@@ -59,5 +60,6 @@ library.add(
   // Adding Pro icons
   faHandWave,
   faFileSvg,
-  faFilePng
+  faFilePng,
+  faTasks
 );
