@@ -2,7 +2,7 @@ import React from 'react';
 
 const Header = ({ title, imageUrl }) => {
   return (
-    <header className="bg-gray-800 text-white relative">
+    <header className="bg-slate-950 text-white relative">
       {imageUrl && (
         <div className="absolute inset-0">
           <img src={imageUrl} alt="Header background" className="w-full h-full object-cover" />

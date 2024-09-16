@@ -19,7 +19,8 @@ function App() {
 
   return (
     <Router>
-      <Layout user={user} pageTitle="QR QR QR" headerImage={headerImage}>
+      {/* <Layout user={user} pageTitle="QR QR QR" headerImage={headerImage}>*/}
+      <Layout user={user} pageTitle="QR's">
         <Suspense fallback={<div>Loading...</div>}>
           <Routes>
             <Route path="/" element={<Home />} />  {/* Home route */}
